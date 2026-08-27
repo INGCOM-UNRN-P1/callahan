@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "callahan"
+version = "0.1.0"
+description = "Verificador formal de contratos ACSL y especificaciones deductivas con Frama-C"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+callahan = "callahan.cli:main"
+
+[project.entry-points."ripley.plugins"]
+formal_contracts = "callahan.ripley_plugin:CallahanPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/callahan"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
