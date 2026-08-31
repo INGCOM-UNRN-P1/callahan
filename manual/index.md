@@ -355,3 +355,12 @@ Podés encadenar `callahan` con otras herramientas del ecosistema en una única 
 callahan check src/tda.c && weyl diff src/tda.c canon/tda.c
 ````
 
+---
+
+(manual-callahan-seccion-plugins)=
+## 9. Extensión, Desarrollo de Plugins y API Python
+
+Para crear tus propias reglas, conectores de evaluación o integrar `callahan` programáticamente en pipelines de CI/CD:
+
+- 👉 **Consultá la guía completa:** [Guía de Extensión y Creación de Plugins](plugins.md)
+
