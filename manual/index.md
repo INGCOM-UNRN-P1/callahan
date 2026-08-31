@@ -184,3 +184,53 @@ check-callahan:
 ````
 
 Ejecutá `make check-callahan` antes de cada commit para asegurar que tu código conserve el estado de aprobación.
+
+---
+
+(manual-callahan-arquitectura)=
+## 7. Arquitectura Interna y Mecanismo Técnico
+
+La herramienta **`callahan`** implementa un motor de alta precisión basado en:
+
+- **Tecnología Núcleo:** `Frama-C Kernel 28.0 + WP Plugin (Weakest Precondition) + Solvers Alt-Ergo / Z3`.
+- **Aislamiento y Determinismo:** Diseñada para operar sin efectos colaterales en entornos de integración continua (CI), terminales de estudiantes y servidores docentes headless.
+- **Manejo de Errores Pedagógico:** Todo fallo de sintaxis, memoria o lógica se traduce en una acción prescriptiva concreta con su respectiva justificación técnica.
+
+---
+
+(manual-callahan-ecosistema)=
+## 8. Integración y Conexión con el Ecosistema
+
+````{note}
+Ninguna herramienta opera de forma aislada. **`callahan`** forma parte del pipeline integral de evaluación, verificación y enseñanza de la cátedra.
+````
+
+### Diagrama de Flujo e Interoperabilidad
+
+````{mermaid}
+graph TD
+    SRC[Código C + ACSL] --> CAL[Callahan: Verificador Formal]
+    CAL -->|Metas Deductivas| WP[Frama-C WP Plugin]
+    WP -->|Demostración Matemática| Z3[Alt-Ergo / Z3 Provers]
+    CAL -->|Soluciones Libres de UB| DK[Deckard: Banco Canónico]
+    CAL -->|Contratos de API| CORB[Corbel: Documentación de TDAs]
+````
+
+### Matriz de Intercambio de Datos
+
+| Canal | Herramientas Conectadas | Tipo de Datos Transferidos |
+| :--- | :--- | :--- |
+| **Entradas (Inputs)** | - `Código C con especificaciones formales ACSL` | Código fuente, AST, binarios, testcases, contratos |
+| **Salidas (Outputs)** | - `deckard (soluciones canónicas certificadas)`
+- `dredd (oráculo formal)` | Informes Markdown, diagnósticos Rich, JSON, actas |
+| **Sincronización** | `weyl`, `daedalus`, `deckard` | Validación cruzada, flags compartidos y autofix |
+
+### Pipeline de Integración Recomendado
+
+Podés encadenar `callahan` con otras herramientas del ecosistema en una única línea de comando:
+
+````{code-block} bash
+# Pipeline de integración típico
+callahan check src/tda.c && weyl diff src/tda.c canon/tda.c
+````
+
