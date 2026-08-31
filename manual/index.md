@@ -1,0 +1,186 @@
+---
+title: "Manual de Referencia: callahan"
+subtitle: "Callahan — Verificador Formal de Contratos ACSL y Demostración Deductiva con Frama-C"
+author: "Cátedra de Algoritmos y Programación"
+date: "2026-08-31"
+---
+
+(manual-callahan)=
+# Callahan — Verificador Formal de Contratos ACSL y Demostración Deductiva con Frama-C
+
+````{abstract}
+**Rol en el ecosistema:** Verificación matemática de precondiciones, postcondiciones, invariantes de lazo y ausencia de desbordes aritméticos con Frama-C WP.
+````
+
+---
+
+(manual-callahan-proposito)=
+## 1. Propósito y Filosofía Pedagógica
+
+La herramienta **`callahan`** forma parte del ecosistema oficial de software de la cátedra. Su diseño sigue principios pedagógicos rigurosos:
+
+1. **Evidencia Técnica Directa**: Todo diagnóstico se fundamenta en la norma ISO C (C11/C23), en el modelo de memoria del sistema o en convenciones arquitectónicas formales.
+2. **Acción Correctiva Concreta**: Cada advertencia incluye la prescripción técnica inmediata para resolver el defecto sin recurrir a conjeturas.
+3. **Autonomía del Estudiante**: Facilita la autoevaluación local antes de la entrega final del trabajo práctico.
+4. **Objetividad Docente**: Estandariza la corrección automática eliminando discrepancias subjetivas en la evaluación.
+
+---
+
+(manual-callahan-instalacion)=
+## 2. Instalación y Diagnóstico del Entorno
+
+````{important}
+Asegurate de contar con el compilador GCC/Clang y las librerías del sistema instaladas antes de ejecutar `callahan`.
+````
+
+Para comprobar el estado de salud de tu entorno de trabajo y las dependencias auxiliares:
+
+````{code-block} bash
+# Comprobación de dependencias del sistema
+callahan doctor
+````
+
+Si se detecta la falta de alguna utilidad (como `gdb`, `valgrind`, `clang-format` o `typst`), el comando indicará el paquete exacto a instalar según tu distribución GNU/Linux o entorno MSYS2.
+
+---
+
+(manual-callahan-comandos)=
+## 3. Referencia Completa de Comandos CLI
+
+A continuación se detallan los subcomandos principales disponibles en `callahan`:
+
+| Sintaxis del Comando | Descripción y Efecto |
+| :--- | :--- |
+| `callahan check <archivo.c>` | Verifica los contratos ACSL del archivo con Frama-C WP. |
+| `callahan gen-contracts <archivo.h>` | Genera plantillas de pre/postcondiciones para funciones C. |
+| `callahan doctor` | Verifica la instalación de Frama-C, Alt-Ergo y Z3. |
+| `callahan verify-loop <archivo.c> --function <fn>` | Demuestra formalmente la terminación e invariantes de un lazo. |
+
+````{tip}
+Podés agregar el flag `--json` a la mayoría de los comandos para exportar resultados en formato estructurado o `--md` para generar reportes Markdown para el informe de entrega.
+````
+
+---
+
+(manual-callahan-tutorial)=
+## 4. Tutorial Paso a Paso con Ejemplos Reales
+
+### Caso de Estudio
+
+Considerá el siguiente fragmento de código representativo:
+
+````{code-block} c
+:linenos:
+/*@
+  @ requires \valid(v + (0 .. n-1));
+  @ requires n > 0;
+  @ assigns \nothing;
+  @ ensures \forall integer i; 0 <= i < n ==> \result >= v[i];
+  @*/
+int buscar_maximo(const int *v, int n) {
+    int max = v[0];
+    /*@
+      @ loop invariant 1 <= i <= n;
+      @ loop invariant \forall integer k; 0 <= k < i ==> max >= v[k];
+      @ loop assigns i, max;
+      @ loop variant n - i;
+      @*/
+    for (int i = 1; i < n; i++) {
+        if (v[i] > max) max = v[i];
+    }
+    return max;
+}
+````
+
+### Ejecución de la Herramienta
+
+Ejecutá el análisis desde tu terminal:
+
+````{code-block} bash
+callahan check <archivo.c>
+````
+
+### Salida Obtenida en Consola
+
+````{code-block} text
+[WP] Proving goal buscar_maximo_ensures_1: Valid (Alt-Ergo 2.4)
+[WP] Proving goal buscar_maximo_loop_invariant_1: Valid (Qed)
+[WP] Proving goal buscar_maximo_loop_variant: Valid (Qed)
+[✓] Todas las metas demostradas formalmente. 0 desbordes.
+````
+
+````{note}
+Prestá atención a la explicación pedagógica generada: la herramienta no solo señala la línea del problema, sino que explica la causa raíz y el impacto en memoria o arquitectura.
+````
+
+---
+
+(manual-callahan-ejercicios)=
+## 5. Ejercicios Prácticos y Desafíos
+
+Practicá el uso avanzado de **`callahan`** resolviendo los siguientes ejercicios:
+
+````{exercise} Desafío 1: Verificación de Búsqueda Binaria
+Demostrar que `busqueda_binaria()` no sufre desbordes al calcular `mid`.
+
+**Instrucción de ejecución:**
+```bash
+callahan check src/busqueda.c
+```
+````
+
+````{solution} Desafío 1
+```bash
+callahan check src/busqueda.c
+# Verificá que la operación concluya exitosamente con código de salida 0.
+```
+````
+
+````{exercise} Desafío 2: Invariante de Lazo en Inversión de Vector
+Escribir contratos ACSL para invertir un vector.
+
+**Instrucción de ejecución:**
+```bash
+callahan check src/invertir.c
+```
+````
+
+````{solution} Desafío 2
+```bash
+callahan check src/invertir.c
+# Revisá el archivo generado o el informe en terminal para confirmar la resolución del problema.
+```
+````
+
+````{exercise} Desafío 3: Generación Automática de Contratos
+Generar precondiciones de punteros válidos para `include/lista.h`.
+
+**Instrucción de ejecución:**
+```bash
+callahan gen-contracts include/lista.h -o include/lista_contratos.h
+```
+````
+
+````{solution} Desafío 3
+```bash
+callahan gen-contracts include/lista.h -o include/lista_contratos.h
+# Comprobá que la salida confirme la ausencia de advertencias o errores pendientes.
+```
+````
+
+---
+
+(manual-callahan-makefile)=
+## 6. Integración en el Flujo de Trabajo y Makefile
+
+Para incorporar `callahan` de forma automática a tu flujo de desarrollo, agregá la siguiente regla en el `Makefile` de tu proyecto:
+
+````{code-block} makefile
+check-callahan:
+	@echo "=== Ejecutando verificación con callahan ==="
+	callahan check src/ include/
+
+.PHONY: check-callahan
+````
+
+Ejecutá `make check-callahan` antes de cada commit para asegurar que tu código conserve el estado de aprobación.
