@@ -49,6 +49,7 @@ class ReporteVerificacion:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "schema_version": "1.0.0",
             "archivo": str(self.archivo),
             "total_contratos": len(self.contratos),
             "frama_c_disponible": self.frama_c_disponible,

@@ -48,7 +48,7 @@ def main_callback(
 
 def generar_seccion_markdown(reporte) -> str:
     """Genera sección de verificación formal ACSL para Dredd."""
-    lines = ["## Verificación Formal de Contratos ACSL (Callahan)\n"]
+    lines = ["<!-- dredd-section: callahan v1.0.0 -->\n## Verificación Formal de Contratos ACSL (Callahan)\n"]
     lines.append(f"- **Archivo analizado:** `{reporte.archivo.name}`")
     lines.append(f"- **Contratos formales detectados:** {len(reporte.contratos)}")
     total_prob = getattr(reporte, "total_clausulas_probadas", sum(len(c.clausulas) for c in reporte.contratos if c.verificado_wp))
@@ -71,7 +71,8 @@ def generar_seccion_markdown(reporte) -> str:
                 wp_tag = "⚠️ UNVERIFIED (sin Frama-C)"
             else:
                 wp_tag = "✓ Probado" if c.verificado_wp else "❌ No Probado"
-            lines.append(f"| `{c.funcion}()` | {c.linea_inicio} | {len(c.clausulas)} | **{wp_tag}** |")
+            func_name = str(c.funcion).replace("|", "\\|")
+            lines.append(f"| `{func_name}()` | {c.linea_inicio} | {len(c.clausulas)} | **{wp_tag}** |")
         lines.append("")
     return "\n".join(lines)
 
