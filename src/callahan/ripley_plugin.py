@@ -28,9 +28,11 @@ class CallahanPlugin:
             total_contratos += len(rep.contratos)
             for c in rep.contratos:
                 if not c.verificado_wp:
+                    codigo = "FORMAL_WP_UNVERIFIED" if not rep.frama_c_disponible else "FORMAL_WP_FAILED"
+                    severidad = "ADVERTENCIA" if not rep.frama_c_disponible else "ERROR"
                     observaciones.append({
-                        "codigo": "FORMAL_WP_FAILED",
-                        "severidad": "ERROR",
+                        "codigo": codigo,
+                        "severidad": severidad,
                         "archivo": str(a),
                         "linea": c.linea_inicio,
                         "mensaje": f"No se pudo probar formalmente el contrato de la función '{c.funcion}': {c.mensaje_prover}",

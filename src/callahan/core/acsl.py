@@ -51,7 +51,7 @@ def extraer_contratos_acsl(archivo: Path) -> List[ContratoACSL]:
             archivo=archivo,
             linea_inicio=linea_inicio,
             clausulas=clausulas,
-            verificado_wp=len(clausulas) > 0,  # Sintácticamente válido
+            verificado_wp=False,
         ))
 
     return contratos
@@ -64,7 +64,10 @@ def verificar_formal_frama_c(archivo: Path) -> ReporteVerificacion:
     frama_c = shutil.which("frama-c")
 
     if not frama_c:
-        # Fallback sin prover: validación sintáctica de contratos
+        # Fallback sin prover: validación sintáctica de contratos, sin verificación deductiva
+        for c in contratos:
+            c.verificado_wp = False
+            c.mensaje_prover = "UNVERIFIED: Frama-C no disponible"
         return ReporteVerificacion(
             archivo=archivo,
             contratos=contratos,

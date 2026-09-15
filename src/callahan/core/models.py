@@ -43,6 +43,8 @@ class ReporteVerificacion:
 
     @property
     def ok(self) -> bool:
+        if not self.frama_c_disponible:
+            return False
         return all(c.verificado_wp for c in self.contratos) if self.contratos else True
 
     def to_dict(self) -> Dict[str, Any]:

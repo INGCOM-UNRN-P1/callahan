@@ -18,17 +18,20 @@ def test_plugin_execution(tmp_path):
     f = tmp_path / "suma.c"
     f.write_text("/*@ requires a > 0; ensures \\result > 0; */ int f(int a) { return a; }\n")
     res = p.execute(tmp_path, {})
-    assert res["ok"] is True
+    assert res["ok"] is False
     assert res["total_contratos"] == 1
+    assert len(res["observaciones"]) == 1
+    assert res["observaciones"][0]["codigo"] == "FORMAL_WP_UNVERIFIED"
 
 
 def test_cli_verify_rich_and_empty(tmp_path):
-    # With contracts
+    # With contracts (sin frama-c -> UNVERIFIED -> exit code 1)
     f = tmp_path / "code.c"
     f.write_text("/*@ requires x >= 0; */ int f(int x) { return x; }\n")
     res = runner.invoke(app, ["verify", str(f)])
-    assert res.exit_code == 0
+    assert res.exit_code == 1
     assert "Contratos ACSL Detectados" in res.stdout
+    assert "UNVERIFIED" in res.stdout
 
     # Without contracts
     f_empty = tmp_path / "no_acsl.c"

@@ -56,6 +56,8 @@ def generar_seccion_markdown(reporte) -> str:
     lines.append(f"- **Cláusulas verificadas con WP:** {total_prob}/{total_claus}\n")
     if not reporte.contratos:
         lines.append("> [!NOTE]\n> No se encontraron especificaciones formales ACSL (`/*@ ... */`) en el código.\n")
+    elif not reporte.frama_c_disponible:
+        lines.append("> [!WARNING]\n> **No Verificado (UNVERIFIED):** Frama-C no está disponible en el entorno; los contratos no fueron probados deductivamente.\n")
     elif reporte.ok:
         lines.append("> [!TIP]\n> **Demostración Exitosa:** Todas las precondiciones, postcondiciones e invariantes fueron probadas deductivamente.\n")
     else:
@@ -65,7 +67,10 @@ def generar_seccion_markdown(reporte) -> str:
         lines.append("| Función | Línea | Cláusulas | Estado WP |")
         lines.append("| :--- | :---: | :---: | :---: |")
         for c in reporte.contratos:
-            wp_tag = "✓ Probado" if c.verificado_wp else "❌ No Probado"
+            if not reporte.frama_c_disponible:
+                wp_tag = "⚠️ UNVERIFIED (sin Frama-C)"
+            else:
+                wp_tag = "✓ Probado" if c.verificado_wp else "❌ No Probado"
             lines.append(f"| `{c.funcion}()` | {c.linea_inicio} | {len(c.clausulas)} | **{wp_tag}** |")
         lines.append("")
     return "\n".join(lines)
@@ -106,10 +111,18 @@ def verify_cmd(
     tabla.add_column("Verificación WP", justify="center")
 
     for c in reporte.contratos:
-        wp_str = "[bold green]PROBADO (100%)[/bold green]" if c.verificado_wp else "[red]NO PROBADO[/red]"
+        if not reporte.frama_c_disponible:
+            wp_str = "[yellow]UNVERIFIED (sin Frama-C)[/yellow]"
+        else:
+            wp_str = "[bold green]PROBADO (100%)[/bold green]" if c.verificado_wp else "[red]NO PROBADO[/red]"
         tabla.add_row(f"{c.funcion}()", str(c.linea_inicio), str(len(c.clausulas)), wp_str)
 
     console.print(tabla)
+    if not reporte.frama_c_disponible:
+        console.print("[yellow]Advertencia: Frama-C no está disponible en el entorno; verificación deductiva no realizada.[/yellow]")
+        raise typer.Exit(code=1)
+    if not reporte.ok:
+        raise typer.Exit(code=1)
 
 
 @app.command("report")

@@ -37,5 +37,27 @@ def test_verificar_formal_fallback(tmp_path):
     """)
 
     rep = verificar_formal_frama_c(fuente)
-    assert rep.ok is True
+    assert rep.frama_c_disponible is False
+    assert rep.ok is False
     assert len(rep.contratos) == 1
+    assert rep.contratos[0].verificado_wp is False
+    assert "UNVERIFIED" in rep.contratos[0].mensaje_prover
+
+
+def test_verificar_formal_frama_c_mock(monkeypatch, tmp_path):
+    monkeypatch.setattr("shutil.which", lambda t: "/usr/bin/frama-c" if t == "frama-c" else None)
+    class MockRes:
+        stdout = "Proved goals: 100%"
+        returncode = 0
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: MockRes())
+
+    fuente = tmp_path / "suma.c"
+    fuente.write_text("""
+    /*@ requires x > 0; ensures \\result == x * 2; */
+    int doble(int x) { return x * 2; }
+    """)
+
+    rep = verificar_formal_frama_c(fuente)
+    assert rep.frama_c_disponible is True
+    assert rep.ok is True
+    assert rep.contratos[0].verificado_wp is True
