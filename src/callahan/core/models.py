@@ -43,9 +43,24 @@ class ReporteVerificacion:
 
     @property
     def ok(self) -> bool:
+        # Sin contratos no hay nada que verificar: con o sin Frama-C.
+        if not self.contratos:
+            return True
         if not self.frama_c_disponible:
             return False
-        return all(c.verificado_wp for c in self.contratos) if self.contratos else True
+        return all(c.verificado_wp for c in self.contratos)
+
+    @property
+    def verificacion_imposible(self) -> bool:
+        """Hay contratos pero falta Frama-C: no se pudo verificar (≠ se verificó y falló)."""
+        return bool(self.contratos) and not self.frama_c_disponible
+
+    @property
+    def codigo_de_salida(self) -> int:
+        """Contrato 0/1/2 de la CLI: 0 verificado, 1 contrato rechazado, 2 no se pudo verificar."""
+        if self.verificacion_imposible:
+            return 2
+        return 0 if self.ok else 1
 
     def to_dict(self) -> Dict[str, Any]:
         return {

@@ -25,11 +25,11 @@ def test_plugin_execution(tmp_path):
 
 
 def test_cli_verify_rich_and_empty(tmp_path):
-    # With contracts (sin frama-c -> UNVERIFIED -> exit code 1)
+    # With contracts (sin frama-c -> UNVERIFIED -> no se pudo verificar: exit code 2)
     f = tmp_path / "code.c"
     f.write_text("/*@ requires x >= 0; */ int f(int x) { return x; }\n")
     res = runner.invoke(app, ["verify", str(f)])
-    assert res.exit_code == 1
+    assert res.exit_code == 2
     assert "Contratos ACSL Detectados" in res.stdout
     assert "UNVERIFIED" in res.stdout
 

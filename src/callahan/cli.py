@@ -83,7 +83,12 @@ def verify_cmd(
     json_output: bool = typer.Option(False, "--json", help="Salida estructurada en JSON."),
     output_md: Optional[Path] = typer.Option(None, "--md", "--output-md", "-o", help="Generar sección de reporte en formato Markdown para fusión en Dredd."),
 ) -> None:
-    """Verifica deductivamente las precondiciones, postcondiciones e invariantes del archivo C."""
+    """Verifica deductivamente las precondiciones, postcondiciones e invariantes del archivo C.
+
+    Sale con 0 si todo se probó, 1 si Frama-C rechazó algún contrato y 2 si no se pudo
+    verificar (Frama-C no está instalado): un script distingue así una regresión real de
+    una dependencia opcional ausente.
+    """
     if not fuente.is_file():
         err_console.print(f"[red]Error:[/red] No se encontró el archivo '{fuente}'.")
         raise typer.Exit(code=2)
@@ -95,11 +100,11 @@ def verify_cmd(
         output_md.parent.mkdir(parents=True, exist_ok=True)
         output_md.write_text(md_text, encoding="utf-8")
         console.print(f"[green]✓ Sección Markdown generada en:[/green] [cyan]{output_md}[/cyan]")
-        raise typer.Exit(code=0 if reporte.ok else 1)
+        raise typer.Exit(code=reporte.codigo_de_salida)
 
     if json_output:
         print(json.dumps(reporte.to_dict(), indent=2, ensure_ascii=False))
-        raise typer.Exit(code=0 if reporte.ok else 1)
+        raise typer.Exit(code=reporte.codigo_de_salida)
 
     if not reporte.contratos:
         console.print(f"[yellow]No se encontraron contratos formales (/*@ ... */) en {fuente.name}.[/yellow]")
@@ -121,9 +126,7 @@ def verify_cmd(
     console.print(tabla)
     if not reporte.frama_c_disponible:
         console.print("[yellow]Advertencia: Frama-C no está disponible en el entorno; verificación deductiva no realizada.[/yellow]")
-        raise typer.Exit(code=1)
-    if not reporte.ok:
-        raise typer.Exit(code=1)
+    raise typer.Exit(code=reporte.codigo_de_salida)
 
 
 @app.command("report")
