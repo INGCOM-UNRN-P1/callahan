@@ -62,24 +62,30 @@ def extraer_contratos_acsl(archivo: Path) -> List[ContratoACSL]:
     return contratos
 
 
+PROVERS_SOPORTADOS = ("alt-ergo", "z3")
+
+
 def verificar_formal_frama_c(archivo: Path) -> ReporteVerificacion:
     """Ejecuta Frama-C WP sobre los contratos ACSL si el prover está disponible."""
     archivo = Path(archivo)
     contratos = extraer_contratos_acsl(archivo)
     frama_c = shutil.which("frama-c")
+    provers = [p for p in PROVERS_SOPORTADOS if shutil.which(p)]
 
-    if not frama_c:
-        # Fallback sin prover: validación sintáctica de contratos, sin verificación deductiva
+    if not frama_c or not provers:
+        # Sin Frama-C o sin ningún prover instalado no hay verificación deductiva posible:
+        # es "no se pudo verificar" (UNVERIFIED), no un contrato rechazado.
+        motivo = "Frama-C no disponible" if not frama_c else f"ningún prover instalado ({'/'.join(PROVERS_SOPORTADOS)})"
         for c in contratos:
             c.verificado_wp = False
-            c.mensaje_prover = "UNVERIFIED: Frama-C no disponible"
+            c.mensaje_prover = f"UNVERIFIED: {motivo}"
         return ReporteVerificacion(
             archivo=archivo,
             contratos=contratos,
             frama_c_disponible=False,
         )
 
-    cmd = [frama_c, "-wp", "-wp-prover", "alt-ergo,z3", str(archivo.resolve())]
+    cmd = [frama_c, "-wp", "-wp-prover", ",".join(provers), str(archivo.resolve())]
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
         exito_wp = ("Proved goals: 100%" in res.stdout) or (res.returncode == 0)
