@@ -26,7 +26,7 @@ CALLAHAN realiza análisis y verificación deductiva de contratos formales de so
 - Linux o Windows mediante WSL. Python >= 3.10.
 
 ### Dependencias Externas y Binarios
-- `frama-c` con plugin `wp` y al menos un SMT prover (`alt-ergo`, `z3` o `cvc4`).
+- `frama-c` con plugin `wp` y al menos un SMT prover (`alt-ergo` o `z3`; `verify` invoca `-wp-prover alt-ergo,z3`).
 
 ### Integración en el Ecosistema
 - CLI `callahan`. Plugin registrado en `ripley.plugins` (`formal_contracts`). Subcomando `callahan doctor`.
@@ -41,6 +41,9 @@ callahan extract algoritmo.c
 
 # 2. Probar formalmente contratos con Frama-C
 callahan verify algoritmo.c
+
+# 2b. Generar la sección de reporte Markdown para Dredd
+callahan report algoritmo.c -o callahan.md
 
 # 3. Salida estructurada JSON
 callahan extract algoritmo.c --json
