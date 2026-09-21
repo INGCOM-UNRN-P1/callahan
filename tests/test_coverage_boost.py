@@ -11,7 +11,7 @@ from callahan.ripley_plugin import CallahanPlugin
 runner = CliRunner()
 
 
-def test_plugin_execution(tmp_path):
+def test_plugin_execution(tmp_path, sin_frama_c):
     p = CallahanPlugin()
     assert p.is_available() is True
 
@@ -24,7 +24,7 @@ def test_plugin_execution(tmp_path):
     assert res["observaciones"][0]["codigo"] == "FORMAL_WP_UNVERIFIED"
 
 
-def test_cli_verify_rich_and_empty(tmp_path):
+def test_cli_verify_rich_and_empty(tmp_path, sin_frama_c):
     # With contracts (sin frama-c -> UNVERIFIED -> no se pudo verificar: exit code 2)
     f = tmp_path / "code.c"
     f.write_text("/*@ requires x >= 0; */ int f(int x) { return x; }\n")

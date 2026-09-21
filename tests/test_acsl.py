@@ -29,7 +29,7 @@ def test_extraer_contrato_acsl(tmp_path):
     assert "assigns" in tipos
 
 
-def test_verificar_formal_fallback(tmp_path):
+def test_verificar_formal_fallback(tmp_path, sin_frama_c):
     fuente = tmp_path / "suma.c"
     fuente.write_text("""
     /*@ requires x > 0; ensures \\result == x * 2; */
