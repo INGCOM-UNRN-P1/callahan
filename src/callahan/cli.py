@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from callahan import __version__
-from callahan.core.acsl import extraer_contratos_acsl, verificar_formal_frama_c
+from callahan.core.acsl import ErrorLectura, extraer_contratos_acsl, verificar_formal_frama_c
 
 console = Console()
 err_console = Console(stderr=True)
@@ -93,7 +93,11 @@ def verify_cmd(
         err_console.print(f"[red]Error:[/red] No se encontró el archivo '{fuente}'.")
         raise typer.Exit(code=2)
 
-    reporte = verificar_formal_frama_c(fuente)
+    try:
+        reporte = verificar_formal_frama_c(fuente)
+    except ErrorLectura as e:
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(code=2)
 
     if output_md:
         md_text = generar_seccion_markdown(reporte)
@@ -138,7 +142,11 @@ def report_cmd(
     if not fuente.is_file():
         err_console.print(f"[red]Error:[/red] No se encontró el archivo '{fuente}'.")
         raise typer.Exit(code=2)
-    reporte = verificar_formal_frama_c(fuente)
+    try:
+        reporte = verificar_formal_frama_c(fuente)
+    except ErrorLectura as e:
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(code=2)
     md_content = generar_seccion_markdown(reporte)
     if output:
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -154,7 +162,14 @@ def extract_cmd(
     json_output: bool = typer.Option(False, "--json", help="Salida en JSON."),
 ) -> None:
     """Extrae e imprime las cláusulas de contratos ACSL encontradas en el código."""
-    contratos = extraer_contratos_acsl(fuente)
+    if not fuente.is_file():
+        err_console.print(f"[red]Error:[/red] No se encontró el archivo '{fuente}'.")
+        raise typer.Exit(code=2)
+    try:
+        contratos = extraer_contratos_acsl(fuente)
+    except ErrorLectura as e:
+        err_console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(code=2)
     if json_output:
         print(json.dumps([c.to_dict() for c in contratos], indent=2, ensure_ascii=False))
         raise typer.Exit(code=0)
@@ -175,7 +190,13 @@ def doctor_cmd() -> None:
 
     for tool in ("frama-c", "alt-ergo", "z3", "why3"):
         p = shutil.which(tool)
-        tabla.add_row(tool, "[green]✓ Presente[/green]" if p else "[yellow]⚠️ Opcional[/yellow]", p or "No instalado")
+        if p:
+            estado = "[green]✓ Presente[/green]"
+        elif tool == "frama-c":
+            estado = "[bold red]✗ Requerido[/bold red]"
+        else:
+            estado = "[yellow]⚠️ Opcional[/yellow]"
+        tabla.add_row(tool, estado, p or "No instalado")
 
     console.print(tabla)
 

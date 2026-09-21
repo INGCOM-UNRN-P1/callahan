@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List
 
-from callahan.core.acsl import verificar_formal_frama_c
+from callahan.core.acsl import ErrorLectura, verificar_formal_frama_c
 
 
 class CallahanPlugin:
@@ -24,7 +24,17 @@ class CallahanPlugin:
         total_contratos = 0
 
         for a in archivos:
-            rep = verificar_formal_frama_c(a)
+            try:
+                rep = verificar_formal_frama_c(a)
+            except ErrorLectura as e:
+                observaciones.append({
+                    "codigo": "FORMAL_READ_ERROR",
+                    "severidad": "ADVERTENCIA",
+                    "archivo": str(a),
+                    "linea": 0,
+                    "mensaje": str(e),
+                })
+                continue
             total_contratos += len(rep.contratos)
             for c in rep.contratos:
                 if not c.verificado_wp:

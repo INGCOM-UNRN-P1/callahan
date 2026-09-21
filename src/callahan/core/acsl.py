@@ -11,6 +11,10 @@ from typing import List, Optional
 from callahan.core.models import ClausulaContrato, ContratoACSL, ReporteVerificacion
 
 
+class ErrorLectura(Exception):
+    """El archivo fuente existe pero no se pudo leer (permisos o codificación)."""
+
+
 def extraer_contratos_acsl(archivo: Path) -> List[ContratoACSL]:
     """Extrae bloques de contratos ACSL /*@ ... */ asociados a funciones C."""
     archivo = Path(archivo)
@@ -19,8 +23,8 @@ def extraer_contratos_acsl(archivo: Path) -> List[ContratoACSL]:
 
     try:
         contenido = archivo.read_text(encoding="utf-8")
-    except Exception:
-        return []
+    except (OSError, UnicodeDecodeError) as e:
+        raise ErrorLectura(f"No se pudo leer '{archivo}' como UTF-8: {e}") from e
 
     re_acsl_fn = re.compile(
         r"/\*@\s*([\s\S]*?)\s*\*/\s*(?:[a-zA-Z0-9_*]+\s+)+([a-zA-Z0-9_]+)\s*\([^)]*\)",
@@ -35,7 +39,8 @@ def extraer_contratos_acsl(archivo: Path) -> List[ContratoACSL]:
         linea_inicio = contenido[:m.start()].count("\n") + 1
 
         clausulas: List[ClausulaContrato] = []
-        for l in bloque_acsl.splitlines():
+        linea_bloque = contenido[:m.start(1)].count("\n") + 1
+        for offset, l in enumerate(bloque_acsl.splitlines()):
             l_str = l.strip()
             if m_cl := re.match(r"^@?\s*(requires|ensures|assigns|loop invariant|decreases)\s+(.+)", l_str):
                 kw = m_cl.group(1)
@@ -43,7 +48,7 @@ def extraer_contratos_acsl(archivo: Path) -> List[ContratoACSL]:
                 clausulas.append(ClausulaContrato(
                     tipo=kw,
                     expresion=exp.strip(),
-                    linea=linea_inicio,
+                    linea=linea_bloque + offset,
                 ))
 
         contratos.append(ContratoACSL(
