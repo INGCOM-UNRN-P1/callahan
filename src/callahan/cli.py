@@ -48,7 +48,8 @@ def main_callback(
 
 def generar_seccion_markdown(reporte) -> str:
     """Genera sección de verificación formal ACSL para Dredd."""
-    lines = ["<!-- dredd-section: callahan v1.0.0 -->\n## Verificación Formal de Contratos ACSL (Callahan)\n"]
+    status = "ok" if reporte.ok else "fail"
+    lines = [f"<!-- dredd-section: callahan, tool=callahan, version=1.0.0, status={status} -->\n## Verificación Formal de Contratos ACSL (Callahan)\n"]
     lines.append(f"- **Archivo analizado:** `{reporte.archivo.name}`")
     lines.append(f"- **Contratos formales detectados:** {len(reporte.contratos)}")
     total_prob = getattr(reporte, "total_clausulas_probadas", sum(len(c.clausulas) for c in reporte.contratos if c.verificado_wp))
