@@ -19,6 +19,7 @@ console = Console()
 err_console = Console(stderr=True)
 
 app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
     name="callahan",
     help="📜 CALLAHAN — Verificador formal de contratos ACSL (pre/post condiciones) y Frama-C WP.",
     add_completion=True,
@@ -182,24 +183,41 @@ def extract_cmd(
 
 
 @app.command("doctor")
-def doctor_cmd() -> None:
-    """Comprueba si el entorno cuenta con Frama-C y provers SMT (Alt-Ergo, Z3)."""
-    tabla = Table(title="Herramientas de Verificación Deductiva")
-    tabla.add_column("Prover / Motor", style="bold cyan")
-    tabla.add_column("Estado", justify="center")
-    tabla.add_column("Ruta")
+def doctor_cmd(
+    json_output: bool = typer.Option(False, "--json", help="Emitir el diagnóstico como JSON (schema_version 1.0.0)."),
+) -> None:
+    """Comprueba si el entorno cuenta con Frama-C y provers SMT (Alt-Ergo, Z3).
 
+    Sale con 1 si falta Frama-C: sin él `callahan verify` no puede verificar.
+    """
+    from callahan import __version__
+
+    chequeos = []
     for tool in ("frama-c", "alt-ergo", "z3", "why3"):
-        p = shutil.which(tool)
-        if p:
-            estado = "[green]✓ Presente[/green]"
-        elif tool == "frama-c":
-            estado = "[bold red]✗ Requerido[/bold red]"
-        else:
-            estado = "[yellow]⚠️ Opcional[/yellow]"
-        tabla.add_row(tool, estado, p or "No instalado")
+        ruta = shutil.which(tool)
+        chequeos.append({"nombre": tool, "requerido": tool == "frama-c", "ok": bool(ruta),
+                         "detalle": ruta or "No instalado"})
+    ok = all(c["ok"] for c in chequeos if c["requerido"])
 
-    console.print(tabla)
+    if json_output:
+        print(json.dumps({"schema_version": "1.0.0", "herramienta": "callahan", "version": __version__,
+                          "ok": ok, "chequeos": chequeos}, ensure_ascii=False, indent=2))
+    else:
+        tabla = Table(title="Herramientas de Verificación Deductiva")
+        tabla.add_column("Prover / Motor", style="bold cyan")
+        tabla.add_column("Estado", justify="center")
+        tabla.add_column("Ruta")
+        for c in chequeos:
+            if c["ok"]:
+                estado = "[green]✓ Presente[/green]"
+            elif c["requerido"]:
+                estado = "[bold red]✗ Requerido[/bold red]"
+            else:
+                estado = "[yellow]⚠️ Opcional[/yellow]"
+            tabla.add_row(c["nombre"], estado, c["detalle"])
+        console.print(tabla)
+    if not ok:
+        raise typer.Exit(code=1)
 
 
 def main() -> None:
