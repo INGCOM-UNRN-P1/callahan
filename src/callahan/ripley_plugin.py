@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List
 
+from callahan import __version__
 from callahan.core.acsl import ErrorLectura, verificar_formal_frama_c
 
 
@@ -13,7 +14,7 @@ class CallahanPlugin:
     """Plugin de verificación formal de contratos ACSL para Ripley."""
 
     name = "formal_contracts"
-    version = "0.1.0"
+    version = __version__
 
     def is_available(self) -> bool:
         return True
