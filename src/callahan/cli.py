@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from yutani.cli import crear_app
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -18,33 +19,14 @@ from callahan.core.acsl import ErrorLectura, extraer_contratos_acsl, verificar_f
 console = Console()
 err_console = Console(stderr=True)
 
-app = typer.Typer(
-    context_settings={"help_option_names": ["-h", "--help"]},
-    name="callahan",
-    help="📜 CALLAHAN — Verificador formal de contratos ACSL (pre/post condiciones) y Frama-C WP.",
+# Contrato de línea de comandos del ecosistema (-h/--help, --version/-v, errores de datos como
+# mensajes) y textos de Typer en español, desde yutani (N-ECO-14).
+app = crear_app(
+    "callahan",
+    __version__,
+    "📜 CALLAHAN — Verificador formal de contratos ACSL (pre/post condiciones) y Frama-C WP.",
     add_completion=True,
-    no_args_is_help=True,
 )
-
-
-def _version_callback(value: bool) -> None:
-    if value:
-        console.print(f"[bold cyan]CALLAHAN[/bold cyan] versión [bold]{__version__}[/bold]")
-        raise typer.Exit(code=0)
-
-
-@app.callback()
-def main_callback(
-    version: Optional[bool] = typer.Option(
-        None,
-        "--version",
-        "-v",
-        help="Muestra la versión de CALLAHAN.",
-        callback=_version_callback,
-        is_eager=True,
-    ),
-) -> None:
-    pass
 
 
 def generar_seccion_markdown(reporte) -> str:
