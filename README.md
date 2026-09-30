@@ -53,3 +53,32 @@ callahan extract algoritmo.c --json
 # 4. Comprobar provers SMT disponibles (Z3, Alt-Ergo)
 callahan doctor
 ```
+
+<!-- p1:referencia:inicio — generado por p1-tools/scripts/readme_generado.py: no editar a mano -->
+
+## Referencia rápida
+
+### Requisitos
+
+- Python ≥ 3.11 y [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- Programas del sistema: `frama-c`.
+
+| Sistema | `frama-c` |
+|:--|:--|
+| Debian / Ubuntu | `opam install frama-c` |
+| Fedora | `opam install frama-c` |
+| Windows | no existe: usar WSL |
+| macOS | `opam install frama-c` |
+
+### Comandos
+
+| Comando | Descripción |
+|:--|:--|
+| `callahan verify` | Verifica deductivamente las precondiciones, postcondiciones e invariantes del archivo C. |
+| `callahan report` | Genera directamente la sección de reporte Markdown de CALLAHAN para Dredd. |
+| `callahan extract` | Extrae e imprime las cláusulas de contratos ACSL encontradas en el código. |
+| `callahan doctor` | Comprueba si el entorno cuenta con Frama-C y provers SMT (Alt-Ergo, Z3). |
+
+Ayuda de cada comando: `callahan <comando> -h`.
+
+<!-- p1:referencia:fin -->
