@@ -14,10 +14,20 @@ def test_cli_version():
     assert res.stdout.startswith("callahan ")  # formato común de yutani: «nombre versión»
 
 
-def test_cli_doctor():
+def test_cli_doctor(monkeypatch):
+    # Sin depender de que la máquina tenga Frama-C: el CI no lo instala (antes el test pasaba solo
+    # donde estaba instalado).
+    import callahan.cli as cli
+
+    monkeypatch.setattr(cli.shutil, "which", lambda herramienta: f"/usr/bin/{herramienta}")
     res = runner.invoke(app, ["doctor"])
     assert res.exit_code == 0
     assert "frama-c" in res.stdout
+
+    monkeypatch.setattr(cli.shutil, "which", lambda herramienta: None)
+    res = runner.invoke(app, ["doctor"])
+    assert res.exit_code == 1  # sin Frama-C, callahan verify no puede verificar
+    assert "Requerido" in res.stdout
 
 
 def test_cli_extract_json(tmp_path):
