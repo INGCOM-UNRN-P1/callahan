@@ -52,7 +52,15 @@ callahan extract algoritmo.c --json
 
 # 4. Comprobar provers SMT disponibles (Z3, Alt-Ergo)
 callahan doctor
+
+# 5. Esqueletos de contratos ACSL desde los docblocks (@pre, @post, @param, @return)
+callahan skeleton tda_lista.h -o contratos.acsl
 ```
+
+`skeleton` traduce las condiciones que ya están escritas en C (`n >= 0`, `p != NULL` →
+`\valid(p)`) y deja como `TODO` las que están en prosa, junto con sugerencias de `requires
+\valid(...)` para los parámetros puntero. `verify` explica cada meta que Frama-C no pudo demostrar
+(poscondición, invariante de lazo, acceso a memoria, desborde…) con lo que suele faltar.
 
 <!-- p1:referencia:inicio — generado por p1-tools/scripts/readme_generado.py: no editar a mano -->
 
@@ -77,6 +85,7 @@ callahan doctor
 | `callahan verify` | Verifica deductivamente las precondiciones, postcondiciones e invariantes del archivo C. |
 | `callahan report` | Genera directamente la sección de reporte Markdown de CALLAHAN para Dredd. |
 | `callahan extract` | Extrae e imprime las cláusulas de contratos ACSL encontradas en el código. |
+| `callahan skeleton` | Esqueletos de contratos ACSL a partir de los docblocks (@pre, @post, @param, @return). |
 | `callahan doctor` | Comprueba si el entorno cuenta con Frama-C y provers SMT (Alt-Ergo, Z3). |
 
 Ayuda de cada comando: `callahan <comando> -h`.

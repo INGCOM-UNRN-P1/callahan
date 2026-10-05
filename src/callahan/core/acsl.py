@@ -89,9 +89,14 @@ def verificar_formal_frama_c(archivo: Path) -> ReporteVerificacion:
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
         exito_wp = ("Proved goals: 100%" in res.stdout) or (res.returncode == 0)
+        # QoL #101: cada meta no demostrada, explicada (en vez de los primeros 200 caracteres crudos).
+        from callahan.core.esqueletos import explicar_metas
+
+        metas = explicar_metas(res.stdout)
         for c in contratos:
-            c.verificado_wp = exito_wp
-            c.mensaje_prover = res.stdout[:200]
+            propias = [m for m in metas if f"_{c.funcion}_" in f"_{m.meta}_"]
+            c.verificado_wp = exito_wp and not propias
+            c.mensaje_prover = "\n".join(m.explicacion for m in propias) or res.stdout[:200]
     except Exception as e:
         for c in contratos:
             c.mensaje_prover = str(e)

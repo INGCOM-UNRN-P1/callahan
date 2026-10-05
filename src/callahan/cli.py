@@ -164,6 +164,25 @@ def extract_cmd(
             console.print(f"  • [yellow]{cl.tipo}:[/yellow] {cl.expresion}")
 
 
+@app.command("skeleton")
+def skeleton_cmd(
+    archivo: Path = typer.Argument(..., exists=True, dir_okay=False, help="Cabecera o fuente con prototipos documentados (@pre, @post)."),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Guardar los contratos en este archivo."),
+) -> None:
+    """Esqueletos de contratos ACSL a partir de los docblocks (@pre, @post, @param, @return)."""
+    from callahan.core.esqueletos import esqueletos_desde_docblocks
+
+    contratos = esqueletos_desde_docblocks(archivo.read_text(encoding="utf-8", errors="replace"))
+    texto = "\n\n".join(contratos) + ("\n" if contratos else "")
+    if output:
+        output.write_text(texto, encoding="utf-8")
+        console.print(f"[green]✓ {len(contratos)} contratos en {output}[/green]")
+    elif contratos:
+        print(texto, end="")
+    else:
+        console.print("[yellow]No hay prototipos documentados con /** ... */ (corbel scaffold genera los docblocks).[/yellow]")
+
+
 @app.command("doctor")
 def doctor_cmd(
     json_output: bool = typer.Option(False, "--json", help="Emitir el diagnóstico como JSON (schema_version 1.0.0)."),
