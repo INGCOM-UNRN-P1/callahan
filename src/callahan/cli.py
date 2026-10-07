@@ -215,7 +215,7 @@ def doctor_cmd(
                 estado = "[bold red]✗ Requerido[/bold red]"
             else:
                 estado = "[yellow]⚠️ Opcional[/yellow]"
-            tabla.add_row(c["nombre"], estado, c["detalle"])
+            tabla.add_row(str(c["nombre"]), estado, str(c["detalle"]))
         console.print(tabla)
     if not ok:
         raise typer.Exit(code=1)
