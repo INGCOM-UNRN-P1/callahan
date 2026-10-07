@@ -81,7 +81,7 @@ def verify_cmd(
         reporte = verificar_formal_frama_c(fuente)
     except ErrorLectura as e:
         err_console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from e
 
     if output_md:
         md_text = generar_seccion_markdown(reporte)
@@ -130,7 +130,7 @@ def report_cmd(
         reporte = verificar_formal_frama_c(fuente)
     except ErrorLectura as e:
         err_console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from e
     md_content = generar_seccion_markdown(reporte)
     if output:
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -153,7 +153,7 @@ def extract_cmd(
         contratos = extraer_contratos_acsl(fuente)
     except ErrorLectura as e:
         err_console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from e
     if json_output:
         print(json.dumps([c.to_dict() for c in contratos], indent=2, ensure_ascii=False))
         raise typer.Exit(code=0)
