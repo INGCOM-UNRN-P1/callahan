@@ -64,6 +64,7 @@ def generar_seccion_markdown(reporte) -> str:
 @app.command("verify")
 def verify_cmd(
     fuente: Path = typer.Argument(..., help="Archivo C con anotaciones ACSL a verificar."),
+    header: Optional[Path] = typer.Option(None, "--header", "-H", help="Encabezado .h con docblocks Doxygen (@pre/@post) de corbel o contratos ACSL."),
     json_output: bool = typer.Option(False, "--json", help="Salida estructurada en JSON."),
     output_md: Optional[Path] = typer.Option(None, "--md", "--output-md", "-o", help="Generar sección de reporte en formato Markdown para fusión en Dredd."),
 ) -> None:
@@ -76,9 +77,12 @@ def verify_cmd(
     if not fuente.is_file():
         err_console.print(f"[red]Error:[/red] No se encontró el archivo '{fuente}'.")
         raise typer.Exit(code=2)
+    if header is not None and not header.is_file():
+        err_console.print(f"[red]Error:[/red] No se encontró el encabezado '{header}'.")
+        raise typer.Exit(code=2)
 
     try:
-        reporte = verificar_formal_frama_c(fuente)
+        reporte = verificar_formal_frama_c(fuente) if header is None else verificar_formal_frama_c(fuente, header=header)
     except ErrorLectura as e:
         err_console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(code=2) from e
