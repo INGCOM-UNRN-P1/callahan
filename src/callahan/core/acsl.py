@@ -140,7 +140,7 @@ def verificar_formal_frama_c(archivo: Path, header: Optional[Path] = None) -> Re
                 tmp_c = tmp_path / archivo.name
                 tmp_c.write_text(texto_exp, encoding="utf-8")
                 cmd = [frama_c, "-wp", "-wp-prover", ",".join(provers), str(tmp_c)]
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=15, cwd=tmp_path)
         else:
             cmd = [frama_c, "-wp", "-wp-prover", ",".join(provers), str(archivo.resolve())]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
