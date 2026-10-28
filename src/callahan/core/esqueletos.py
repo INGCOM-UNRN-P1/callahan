@@ -129,8 +129,8 @@ class MetaNoDemostrada:
 
 
 _META = re.compile(
-    r"(?:Goal\s+(?P<meta>\S+)\s*(?:\([^)]*\))?\s*:\s*(?P<estado>Unknown|Timeout|Failed|Stepout)"
-    r"|\[wp\]\s*\[(?P<estado2>Unknown|Timeout|Failed|Stepout)\]\s+(?P<meta2>typed_\S+))",
+    r"(?:Goal\s+(?P<meta>\S+)\s*(?:\([^)]*\))?\s*:\s*(?P<estado>Unknown|Timeout|Failed|Failure|Stepout)"
+    r"|\[wp\]\s*\[(?P<estado2>Unknown|Timeout|Failed|Failure|Stepout)\]\s+(?P<meta2>typed_\S+))",
     re.IGNORECASE,
 )
 _EXPLICACIONES = [
@@ -164,7 +164,11 @@ def explicar_metas(salida_frama_c: str) -> List[MetaNoDemostrada]:
         f = f"'{_funcion_de(meta)}'"
         texto = next((e.format(f=f) for clave, e in _EXPLICACIONES if clave in meta),
                      f"El prover no pudo demostrar la meta {meta} de {f}.")
-        if estado == "Timeout":
+        if estado == "Failure":
+            texto = (f"El prover falló con la meta {meta} de {f}: no es un problema del contrato. "
+                     "Pasa, por ejemplo, con Alt-Ergo 2.4 y Frama-C 33 en las metas sobre memoria modificada "
+                     "(un ordenamiento, por ejemplo): instalá z3 o Alt-Ergo ≥ 2.5 (callahan doctor).")
+        elif estado == "Timeout":
             texto += " (Se agotó el tiempo: a veces alcanza con más tiempo, -wp-timeout.)"
         metas.append(MetaNoDemostrada(meta, estado, texto))
     return metas

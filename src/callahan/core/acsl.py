@@ -7,10 +7,12 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
 
-from callahan.core.esqueletos import explicar_metas, inyectar_acsl_desde_docblocks
+from callahan.core.contraejemplos import Correr, buscar_contraejemplo
+from callahan.core.esqueletos import MetaNoDemostrada, explicar_metas, inyectar_acsl_desde_docblocks
 from callahan.core.models import ClausulaContrato, ContratoACSL, ReporteVerificacion
+from callahan.core.validacion import ErrorAnotacion, validar_anotaciones
 
 
 class ErrorLectura(Exception):
@@ -86,10 +88,32 @@ def extraer_contratos_acsl(archivo: Path) -> List[ContratoACSL]:
 
 
 PROVERS_SOPORTADOS = ("alt-ergo", "z3")
+TIMEOUT_POR_META = 10  # segundos por meta (-wp-timeout); el de Frama-C es 2 y no alcanza para un ordenamiento
+_TIMEOUT_TOTAL = 600
 
 
-def verificar_formal_frama_c(archivo: Path, header: Optional[Path] = None) -> ReporteVerificacion:
-    """Ejecuta Frama-C WP sobre los contratos ACSL (incluyendo contratos exportados desde docblocks de corbel)."""
+def _metas_no_demostradas(salida: str) -> Optional[Set[str]]:
+    """Nombres de las metas sin demostrar; None si WP no llegó a correr."""
+    if not re.search(r"Proved goals:\s*\d+\s*/\s*\d+", salida):
+        return None
+    return {m.meta for m in explicar_metas(salida)}
+
+
+def verificar_formal_frama_c(
+    archivo: Path,
+    header: Optional[Path] = None,
+    *,
+    rte: bool = True,
+    timeout: int = TIMEOUT_POR_META,
+    contraejemplos: bool = True,
+) -> ReporteVerificacion:
+    """Ejecuta Frama-C WP sobre los contratos ACSL (incluyendo contratos exportados desde docblocks de corbel).
+
+    Con `rte` (por omisión) WP también demuestra la ausencia de errores en tiempo de ejecución:
+    desbordes de enteros, accesos fuera de rango, divisiones por cero. Antes de los provers se
+    validan las anotaciones (`errores_acsl`); y si una meta queda sin demostrar se busca con qué
+    valores de los parámetros falla (`contraejemplo` de cada contrato).
+    """
     archivo = Path(archivo)
     contratos = extraer_contratos_acsl(archivo)
 
@@ -127,44 +151,79 @@ def verificar_formal_frama_c(archivo: Path, header: Optional[Path] = None) -> Re
     texto_exp = _expandir_docblocks(archivo, texto_orig) if archivo.is_file() else ""
     h_orig = header_resuelto.read_text(encoding="utf-8", errors="replace") if (header_resuelto and header_resuelto.is_file()) else ""
     h_exp = _expandir_docblocks(header_resuelto, h_orig) if (header_resuelto and header_resuelto.is_file()) else ""
-    requiere_tmp = (texto_exp != texto_orig) or (h_exp != h_orig) or (header is not None)
+    errores_acsl: List[ErrorAnotacion] = []
+    metas: List[MetaNoDemostrada] = []
 
     try:
-        if requiere_tmp and archivo.is_file():
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmp_path = Path(tmpdir)
-                if header_resuelto is not None and header_resuelto.is_file():
-                    (tmp_path / header_resuelto.name).write_text(h_exp, encoding="utf-8")
-                    if f'"{header_resuelto.name}"' not in texto_exp:
-                        texto_exp = f'#include "{header_resuelto.name}"\n' + texto_exp
-                tmp_c = tmp_path / archivo.name
-                tmp_c.write_text(texto_exp, encoding="utf-8")
-                cmd = [frama_c, "-wp", "-wp-prover", ",".join(provers), str(tmp_c)]
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=15, cwd=tmp_path)
-        else:
-            cmd = [frama_c, "-wp", "-wp-prover", ",".join(provers), str(archivo.resolve())]
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        # Todo corre sobre copias en un directorio temporal: los contratos expandidos desde los
+        # docblocks, las variantes que arma la búsqueda de contraejemplos y la caché de WP
+        # (`.frama-c/`) no tocan la carpeta del alumno. Los demás .h se copian para los #include.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            for h in archivo.parent.glob("*.h"):
+                shutil.copy(h, tmp_path / h.name)
+            if header_resuelto is not None and header_resuelto.is_file():
+                (tmp_path / header_resuelto.name).write_text(h_exp, encoding="utf-8")
+                if f'"{header_resuelto.name}"' not in texto_exp:
+                    texto_exp = f'#include "{header_resuelto.name}"\n' + texto_exp
+            tmp_c = tmp_path / archivo.name
+            tmp_c.write_text(texto_exp, encoding="utf-8")
 
-        metas = explicar_metas(res.stdout)
-        m_goals = re.search(r"Proved goals:\s*(\d+)\s*/\s*(\d+)", res.stdout)
-        if m_goals:
-            probadas, totales = int(m_goals.group(1)), int(m_goals.group(2))
-            exito_wp = (res.returncode == 0) and (probadas == totales) and (totales > 0) and not metas
-        elif "Proved goals: 100%" in res.stdout:
-            exito_wp = (res.returncode == 0) and not metas
-        else:
-            exito_wp = (
-                (res.returncode == 0)
-                and not metas
-                and "[Timeout]" not in res.stdout
-                and "[Unknown]" not in res.stdout
-                and "[Failed]" not in res.stdout
-            )
+            errores_acsl = validar_anotaciones(frama_c, tmp_c, tmp_path)
+            if errores_acsl:
+                for c in contratos:
+                    c.verificado_wp = False
+                    c.mensaje_prover = "No se verificó: el archivo tiene errores en los contratos o en el código."
+                return ReporteVerificacion(archivo=archivo, contratos=contratos, frama_c_disponible=True,
+                                           errores_acsl=errores_acsl)
 
-        for c in contratos:
-            propias = [m for m in metas if f"_{c.funcion}_" in f"_{m.meta}_"]
-            c.verificado_wp = exito_wp and not propias
-            c.mensaje_prover = "\n".join(m.explicacion for m in propias) or res.stdout[:200]
+            def correr_wp(fuente: Path, *extra: str) -> subprocess.CompletedProcess[str]:
+                cmd = [frama_c, "-wp", "-wp-prover", ",".join(provers), "-wp-timeout", str(timeout)]
+                if rte:
+                    cmd.append("-wp-rte")
+                return subprocess.run([*cmd, *extra, str(fuente)], capture_output=True, text=True,
+                                      timeout=_TIMEOUT_TOTAL, cwd=tmp_path)
+
+            def correr_variante(funcion: str) -> Correr:
+                """WP sólo sobre `funcion`, con el texto que arma la búsqueda de contraejemplos."""
+                variante = tmp_path / f"callahan_variante_{archivo.name}"
+
+                def correr(texto: str) -> Optional[Set[str]]:
+                    variante.write_text(texto, encoding="utf-8")
+                    try:
+                        return _metas_no_demostradas(correr_wp(variante, "-wp-fct", funcion).stdout)
+                    except subprocess.TimeoutExpired:
+                        return None
+                return correr
+
+            res = correr_wp(tmp_c)
+            metas = explicar_metas(res.stdout)
+            m_goals = re.search(r"Proved goals:\s*(\d+)\s*/\s*(\d+)", res.stdout)
+            if m_goals:
+                probadas, totales = int(m_goals.group(1)), int(m_goals.group(2))
+                exito_wp = (res.returncode == 0) and (probadas == totales) and (totales > 0) and not metas
+            elif "Proved goals: 100%" in res.stdout:
+                exito_wp = (res.returncode == 0) and not metas
+            else:
+                exito_wp = (
+                    (res.returncode == 0)
+                    and not metas
+                    and "[Timeout]" not in res.stdout
+                    and "[Unknown]" not in res.stdout
+                    and "[Failed]" not in res.stdout
+                )
+
+            for c in contratos:
+                propias = [m for m in metas if f"_{c.funcion}_" in f"_{m.meta}_"]
+                c.verificado_wp = exito_wp and not propias
+                c.mensaje_prover = "\n".join(m.explicacion for m in propias) or res.stdout[:200]
+                # Una falla del prover no dice nada del contrato: no hay contraejemplo que buscar.
+                if contraejemplos and propias and any(m.estado != "Failure" for m in propias):
+                    hallado = buscar_contraejemplo(texto_exp, c.funcion, [m.meta for m in propias],
+                                                   correr_variante(c.funcion), textos_contrato=[h_exp])
+                    if hallado is not None:
+                        c.contraejemplo = hallado
+                        c.mensaje_prover = hallado.mensaje + "\n" + c.mensaje_prover
     except Exception as e:
         for c in contratos:
             c.mensaje_prover = str(e)
@@ -173,4 +232,5 @@ def verificar_formal_frama_c(archivo: Path, header: Optional[Path] = None) -> Re
         archivo=archivo,
         contratos=contratos,
         frama_c_disponible=True,
+        metas=metas,
     )

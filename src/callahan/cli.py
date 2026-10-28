@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from callahan import __version__
-from callahan.core.acsl import ErrorLectura, extraer_contratos_acsl, verificar_formal_frama_c
+from callahan.core.acsl import TIMEOUT_POR_META, ErrorLectura, extraer_contratos_acsl, verificar_formal_frama_c
 
 console = Console()
 err_console = Console(stderr=True)
@@ -38,6 +38,13 @@ def generar_seccion_markdown(reporte) -> str:
     total_prob = getattr(reporte, "total_clausulas_probadas", sum(len(c.clausulas) for c in reporte.contratos if c.verificado_wp))
     total_claus = getattr(reporte, "total_clausulas", sum(len(c.clausulas) for c in reporte.contratos))
     lines.append(f"- **Cláusulas verificadas con WP:** {total_prob}/{total_claus}\n")
+    if reporte.errores_acsl:
+        lines.append("> [!CAUTION]\n> **Contratos mal escritos:** Frama-C no pudo leer las anotaciones; no se intentó la demostración.\n")
+        for e in reporte.errores_acsl:
+            lugar = f"`{e.archivo}:{e.linea}`" if e.linea else f"`{e.archivo}`"
+            lines.append(f"- {lugar}: {e.explicacion}")
+        lines.append("")
+        return "\n".join(lines)
     if not reporte.contratos:
         lines.append("> [!NOTE]\n> No se encontraron especificaciones formales ACSL (`/*@ ... */`) en el código.\n")
     elif not reporte.frama_c_disponible:
@@ -58,6 +65,11 @@ def generar_seccion_markdown(reporte) -> str:
             func_name = str(c.funcion).replace("|", "\\|")
             lines.append(f"| `{func_name}()` | {c.linea_inicio} | {len(c.clausulas)} | **{wp_tag}** |")
         lines.append("")
+        contraejemplos = [c.contraejemplo for c in reporte.contratos if c.contraejemplo]
+        if contraejemplos:
+            lines.append("**Por qué no se demostró:**\n")
+            lines.extend(f"- {ce.mensaje}" for ce in contraejemplos)
+            lines.append("")
     return "\n".join(lines)
 
 
@@ -67,12 +79,20 @@ def verify_cmd(
     header: Optional[Path] = typer.Option(None, "--header", "-H", help="Encabezado .h con docblocks Doxygen (@pre/@post) de corbel o contratos ACSL."),
     json_output: bool = typer.Option(False, "--json", help="Salida estructurada en JSON."),
     output_md: Optional[Path] = typer.Option(None, "--md", "--output-md", "-o", help="Generar sección de reporte en formato Markdown para fusión en Dredd."),
+    sin_rte: bool = typer.Option(False, "--sin-rte", help="No demostrar la ausencia de desbordes, accesos inválidos ni divisiones por cero: sólo el contrato."),
+    timeout: int = typer.Option(TIMEOUT_POR_META, "--timeout", min=1, help="Segundos por meta para cada prover."),
+    sin_contraejemplos: bool = typer.Option(False, "--sin-contraejemplos", help="No buscar con qué valores de los parámetros falla una meta (es más rápido)."),
 ) -> None:
     """Verifica deductivamente las precondiciones, postcondiciones e invariantes del archivo C.
 
-    Sale con 0 si todo se probó, 1 si Frama-C rechazó algún contrato y 2 si no se pudo
-    verificar (Frama-C no está instalado): un script distingue así una regresión real de
-    una dependencia opcional ausente.
+    Además del contrato, demuestra que no hay desbordes de enteros, accesos fuera de rango ni
+    divisiones por cero (salvo con --sin-rte). Antes valida que los contratos estén bien
+    escritos (como `callahan check`), y si una meta no se demuestra busca con qué valores
+    de los parámetros falla.
+
+    Sale con 0 si todo se probó, 1 si Frama-C rechazó algún contrato (o están mal escritos)
+    y 2 si no se pudo verificar (Frama-C no está instalado): un script distingue así una
+    regresión real de una dependencia opcional ausente.
     """
     if not fuente.is_file():
         err_console.print(f"[red]Error:[/red] No se encontró el archivo '{fuente}'.")
@@ -82,7 +102,8 @@ def verify_cmd(
         raise typer.Exit(code=2)
 
     try:
-        reporte = verificar_formal_frama_c(fuente) if header is None else verificar_formal_frama_c(fuente, header=header)
+        reporte = verificar_formal_frama_c(fuente, header=header, rte=not sin_rte, timeout=timeout,
+                                           contraejemplos=not sin_contraejemplos)
     except ErrorLectura as e:
         err_console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(code=2) from e
@@ -96,6 +117,10 @@ def verify_cmd(
 
     if json_output:
         print(json.dumps(reporte.to_dict(), indent=2, ensure_ascii=False))
+        raise typer.Exit(code=reporte.codigo_de_salida)
+
+    if reporte.errores_acsl:
+        _mostrar_errores_acsl(reporte.errores_acsl)
         raise typer.Exit(code=reporte.codigo_de_salida)
 
     if not reporte.contratos:
@@ -116,6 +141,12 @@ def verify_cmd(
         tabla.add_row(f"{c.funcion}()", str(c.linea_inicio), str(len(c.clausulas)), wp_str)
 
     console.print(tabla)
+    for c in reporte.contratos:
+        if c.contraejemplo:
+            console.print(f"[bold red]✗[/bold red] {c.contraejemplo.mensaje}")
+    for m in reporte.metas:
+        if not any(c.contraejemplo and f"_{c.funcion}_" in f"_{m.meta}_" for c in reporte.contratos):
+            console.print(f"[yellow]•[/yellow] {m.explicacion}")
     if not reporte.frama_c_disponible:
         console.print("[yellow]Advertencia: Frama-C no está disponible en el entorno; verificación deductiva no realizada.[/yellow]")
     raise typer.Exit(code=reporte.codigo_de_salida)
@@ -142,6 +173,50 @@ def report_cmd(
         console.print(f"[green]✓ Reporte Markdown generado en:[/green] [cyan]{output}[/cyan]")
     else:
         print(md_content)
+
+
+def _mostrar_errores_acsl(errores) -> None:
+    for e in errores:
+        lugar = f"{e.archivo}:{e.linea}" if e.linea else e.archivo
+        console.print(f"[bold red]✗[/bold red] [cyan]{lugar}[/cyan] {e.explicacion}")
+        console.print(f"  [dim]Frama-C: {e.mensaje}[/dim]")
+
+
+@app.command("check")
+def check_cmd(
+    fuente: Path = typer.Argument(..., help="Archivo C (o .h) con contratos ACSL."),
+    json_output: bool = typer.Option(False, "--json", help="Salida en JSON."),
+) -> None:
+    """Valida que los contratos ACSL estén bien escritos, sin correr los provers.
+
+    Lista todos los errores (no sólo el primero, como Frama-C) explicados: una variable
+    que no existe, un punto y coma que falta, `=` en lugar de `==`. Sale con 1 si hay errores
+    y con 2 si Frama-C no está instalado.
+    """
+    import tempfile
+
+    from callahan.core.validacion import validar_anotaciones
+
+    if not fuente.is_file():
+        err_console.print(f"[red]Error:[/red] No se encontró el archivo '{fuente}'.")
+        raise typer.Exit(code=2)
+    frama_c = shutil.which("frama-c")
+    if not frama_c:
+        err_console.print("[red]Error:[/red] Frama-C no está instalado (callahan doctor).")
+        raise typer.Exit(code=2)
+    with tempfile.TemporaryDirectory() as tmp:
+        errores = validar_anotaciones(frama_c, fuente.resolve(), Path(tmp))
+    for e in errores:
+        if Path(e.archivo).name == fuente.name:
+            e.archivo = str(fuente)
+    if json_output:
+        print(json.dumps({"schema_version": "1.0.0", "archivo": str(fuente), "ok": not errores,
+                          "errores": [e.to_dict() for e in errores]}, indent=2, ensure_ascii=False))
+    elif errores:
+        _mostrar_errores_acsl(errores)
+    else:
+        console.print(f"[green]✓ Los contratos de {fuente.name} están bien escritos.[/green]")
+    raise typer.Exit(code=1 if errores else 0)
 
 
 @app.command("extract")
@@ -203,6 +278,9 @@ def doctor_cmd(
         chequeos.append({"nombre": tool, "requerido": tool == "frama-c", "ok": bool(ruta),
                          "detalle": ruta or "No instalado"})
     ok = all(c["ok"] for c in chequeos if c["requerido"])
+    aviso = _aviso_alt_ergo()
+    if aviso:
+        chequeos.append({"nombre": "alt-ergo (versión)", "requerido": False, "ok": False, "detalle": aviso})
 
     if json_output:
         print(json.dumps({"schema_version": "1.0.0", "herramienta": "callahan", "version": __version__,
@@ -223,6 +301,25 @@ def doctor_cmd(
         console.print(tabla)
     if not ok:
         raise typer.Exit(code=1)
+
+
+def _aviso_alt_ergo() -> Optional[str]:
+    """Alt-Ergo < 2.5 sin z3: el Why3 de Frama-C le manda SMT2 polimórfico que no sabe leer."""
+    import re
+    import subprocess
+
+    ruta = shutil.which("alt-ergo")
+    if not ruta or shutil.which("z3"):
+        return None
+    try:
+        salida = subprocess.run([ruta, "--version"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    m = re.match(r"\s*(\d+)\.(\d+)", salida)
+    if m and (int(m.group(1)), int(m.group(2))) < (2, 5):
+        return (f"Alt-Ergo {salida.strip()} falla (Failure) en las metas sobre memoria modificada, como un "
+                "ordenamiento: instalá z3 o Alt-Ergo ≥ 2.5")
+    return None
 
 
 def main() -> None:

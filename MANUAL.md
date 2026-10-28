@@ -56,16 +56,34 @@ callahan doctor
 | :--- | :--- |
 | [`callahan verify`](#verify) | Verifica deductivamente las precondiciones, postcondiciones e invariantes del archivo C. |
 | [`callahan report`](#report) | Genera directamente la sección de reporte Markdown de CALLAHAN para Dredd. |
+| [`callahan check`](#check) | Valida que los contratos ACSL estén bien escritos, sin correr los provers. |
 | [`callahan extract`](#extract) | Extrae e imprime las cláusulas de contratos ACSL encontradas en el código. |
+| `callahan skeleton` | Esqueletos de contratos ACSL a partir de los docblocks (@pre, @post, @param, @return). |
 | [`callahan doctor`](#doctor) | Comprueba si el entorno cuenta con Frama-C y provers SMT (Alt-Ergo, Z3). |
 
 ### `callahan verify`
 
 Verifica deductivamente las precondiciones, postcondiciones e invariantes del archivo C.
 
-Sale con 0 si todo se probó, 1 si Frama-C rechazó algún contrato y 2 si no se pudo
-verificar (Frama-C no está instalado): un script distingue así una regresión real de
-una dependencia opcional ausente.
+Además del contrato, demuestra que no hay desbordes de enteros, accesos fuera de rango ni
+divisiones por cero (`-wp-rte`; se desactiva con `--sin-rte`). Antes de llamar a los provers
+valida que los contratos estén bien escritos (lo mismo que `callahan check`): con un error
+no se intenta la demostración. Si una meta no se demuestra, busca con qué valores de los
+parámetros falla agregando hipótesis al contrato (`n >= 0`, `n != 0`, `\valid(p)`) y, para
+los enteros, confirma un valor concreto con WP:
+
+```text
+✗ La función absol no asegura la postcondición si el parámetro n recibe un valor negativo
+  (ej: n = -1). Agregá `requires n >= 0;` al contrato o contemplá ese caso en el código.
+```
+
+Una meta en estado `Failure` es una falla del prover, no del contrato: pasa con Alt-Ergo
+2.4 en las metas sobre memoria modificada (un ordenamiento). `callahan doctor` lo avisa;
+se resuelve instalando z3 o Alt-Ergo ≥ 2.5.
+
+Sale con 0 si todo se probó, 1 si Frama-C rechazó algún contrato (o están mal escritos) y 2
+si no se pudo verificar (Frama-C no está instalado): un script distingue así una regresión
+real de una dependencia opcional ausente.
 
 #### Argumentos
 | Argumento | Tipo | Descripción |
@@ -77,10 +95,37 @@ una dependencia opcional ausente.
 | :--- | :--- | :--- | :--- |
 | `--json` | `bool` | `False` | Salida estructurada en JSON. |
 | `--md`, `--output-md`, `-o` | `Optional[Path]` | `None` | Generar sección de reporte en formato Markdown para fusión en Dredd. |
+| `--header`, `-H` | `Optional[Path]` | `None` | Encabezado con los contratos (ACSL o docblocks `@pre`/`@post` de corbel). |
+| `--sin-rte` | `bool` | `False` | No demostrar la ausencia de errores en tiempo de ejecución, sólo el contrato. |
+| `--timeout` | `int` | `10` | Segundos por meta para cada prover. |
+| `--sin-contraejemplos` | `bool` | `False` | No buscar con qué valores falla una meta (es más rápido). |
 
 #### Ejemplo de Invocación
 ```bash
 callahan verify <fuente>
+callahan verify ejemplos/busqueda_binaria.c
+```
+
+En `ejemplos/` hay algoritmos clásicos anotados que se demuestran completos con `-wp-rte`:
+máximo, búsqueda lineal, búsqueda binaria (con el punto medio sin desborde), promedio de
+dos enteros y ordenamiento por inserción (el arreglo queda ordenado; requiere z3 o Alt-Ergo ≥ 2.5).
+
+### `callahan check`
+
+Valida que los contratos ACSL estén bien escritos, sin correr los provers. Frama-C aborta en
+el primer error y lo informa en inglés; `check` lista todos, cada uno con su línea y qué
+corregir (una variable que no existe, un `;` que falta, `=` en lugar de `==`, `\result` en
+un `requires`). Un error del código C se deriva a `daedalus compile`. Sale con 1 si hay
+errores y con 2 si Frama-C no está instalado.
+
+#### Opciones y Banderas
+| Opción / Banderas | Tipo | Por Defecto | Descripción |
+| :--- | :--- | :--- | :--- |
+| `--json` | `bool` | `False` | Salida en JSON. |
+
+#### Ejemplo de Invocación
+```bash
+callahan check <fuente>
 ```
 
 ### `callahan report`

@@ -47,7 +47,7 @@ def fuente(tmp_path):
 def test_el_codigo_de_salida_distingue_los_tres_casos_en_todos_los_modos(
     monkeypatch, fuente, tmp_path, modo, frama, verificado, contratos, esperado
 ):
-    monkeypatch.setattr(cli_mod, "verificar_formal_frama_c", lambda f: _reporte(f, frama=frama, verificado=verificado, contratos=contratos))
+    monkeypatch.setattr(cli_mod, "verificar_formal_frama_c", lambda f, **k: _reporte(f, frama=frama, verificado=verificado, contratos=contratos))
     args = ["verify", str(fuente)]
     if modo == "json":
         args.append("--json")
@@ -73,6 +73,6 @@ def test_un_archivo_sin_contratos_es_ok_con_o_sin_frama_c(tmp_path):
 
 
 def test_el_json_sigue_distinguiendo_la_causa_por_campos(monkeypatch, fuente):
-    monkeypatch.setattr(cli_mod, "verificar_formal_frama_c", lambda f: _reporte(f, frama=False, verificado=False))
+    monkeypatch.setattr(cli_mod, "verificar_formal_frama_c", lambda f, **k: _reporte(f, frama=False, verificado=False))
     datos = json.loads(runner.invoke(app, ["verify", str(fuente), "--json"]).output)
     assert datos["frama_c_disponible"] is False and datos["ok"] is False

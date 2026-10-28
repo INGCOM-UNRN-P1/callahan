@@ -48,6 +48,7 @@ def test_verificar_formal_frama_c_mock(monkeypatch, tmp_path):
     monkeypatch.setattr("shutil.which", lambda t, *a, **k: "/usr/bin/" + t if t in ("frama-c", "alt-ergo") else None)
     class MockRes:
         stdout = "Proved goals: 100%"
+        stderr = ""
         returncode = 0
     monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: MockRes())
 
@@ -78,13 +79,15 @@ def test_sin_ningun_prover_instalado_es_no_verificable(monkeypatch, tmp_path):
 def test_solo_se_le_pasan_a_frama_c_los_provers_instalados(monkeypatch, tmp_path):
     real = __import__("shutil").which
     monkeypatch.setattr("shutil.which", lambda t, *a, **k: "/usr/bin/" + t if t in ("frama-c", "alt-ergo") else (None if t == "z3" else real(t, *a, **k)))
-    capturado = {}
+    comandos = []
 
     class R:
-        stdout, returncode = "Proved goals: 100%", 0
+        stdout, stderr, returncode = "Proved goals: 100%", "", 0
 
-    monkeypatch.setattr("subprocess.run", lambda cmd, **k: capturado.setdefault("cmd", cmd) and R())
+    monkeypatch.setattr("subprocess.run", lambda cmd, **k: comandos.append(cmd) or R())
     fuente = tmp_path / "f.c"
     fuente.write_text("/*@ requires x > 0; */ int f(int x) { return x; }\n")
     verificar_formal_frama_c(fuente)
-    assert capturado["cmd"][capturado["cmd"].index("-wp-prover") + 1] == "alt-ergo"
+    # La primera corrida sólo valida las anotaciones; la de WP es la que lleva los provers.
+    wp = next(c for c in comandos if "-wp" in c)
+    assert wp[wp.index("-wp-prover") + 1] == "alt-ergo"

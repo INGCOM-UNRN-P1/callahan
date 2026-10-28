@@ -55,12 +55,25 @@ callahan doctor
 
 # 5. Esqueletos de contratos ACSL desde los docblocks (@pre, @post, @param, @return)
 callahan skeleton tda_lista.h -o contratos.acsl
+
+# 6. Validar que los contratos estén bien escritos, sin correr los provers
+callahan check algoritmo.c
+
+# 7. Contratos desde los docblocks de corbel (corbel acsl tda_lista.h -i los deja en el .h)
+callahan verify tda_lista.c --header tda_lista.h
 ```
 
 `skeleton` traduce las condiciones que ya están escritas en C (`n >= 0`, `p != NULL` →
 `\valid(p)`) y deja como `TODO` las que están en prosa, junto con sugerencias de `requires
 \valid(...)` para los parámetros puntero. `verify` explica cada meta que Frama-C no pudo demostrar
 (poscondición, invariante de lazo, acceso a memoria, desborde…) con lo que suele faltar.
+
+`verify` demuestra también la ausencia de desbordes, accesos fuera de rango y divisiones por cero
+(`-wp-rte`, salvo con `--sin-rte`), valida antes los contratos como `check` y, si una meta no se
+demuestra, busca con qué valores de los parámetros falla: «La función absol no asegura la
+postcondición si el parámetro n recibe un valor negativo (ej: n = -1)». En `ejemplos/` hay
+algoritmos clásicos anotados (búsqueda binaria, ordenamiento por inserción…) que se demuestran
+completos.
 
 <!-- p1:referencia:inicio — generado por p1-tools/scripts/readme_generado.py: no editar a mano -->
 
@@ -84,6 +97,7 @@ callahan skeleton tda_lista.h -o contratos.acsl
 |:--|:--|
 | `callahan verify` | Verifica deductivamente las precondiciones, postcondiciones e invariantes del archivo C. |
 | `callahan report` | Genera directamente la sección de reporte Markdown de CALLAHAN para Dredd. |
+| `callahan check` | Valida que los contratos ACSL estén bien escritos, sin correr los provers. |
 | `callahan extract` | Extrae e imprime las cláusulas de contratos ACSL encontradas en el código. |
 | `callahan skeleton` | Esqueletos de contratos ACSL a partir de los docblocks (@pre, @post, @param, @return). |
 | `callahan doctor` | Comprueba si el entorno cuenta con Frama-C y provers SMT (Alt-Ergo, Z3). |
@@ -92,7 +106,7 @@ Ayuda de cada comando: `callahan <comando> -h`.
 
 ### Salida JSON
 
-Con `--json`, estos comandos emiten el resultado como JSON por la salida estándar, para usarlo desde scripts, ripley o dredd: `callahan verify`, `callahan extract`, `callahan doctor`. El de `doctor --json` lleva `schema_version` y `ok`.
+Con `--json`, estos comandos emiten el resultado como JSON por la salida estándar, para usarlo desde scripts, ripley o dredd: `callahan verify`, `callahan check`, `callahan extract`, `callahan doctor`. El de `doctor --json` lleva `schema_version` y `ok`.
 
 ### Códigos de salida
 

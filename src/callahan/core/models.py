@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from callahan.core.contraejemplos import Contraejemplo
+    from callahan.core.esqueletos import MetaNoDemostrada
+    from callahan.core.validacion import ErrorAnotacion
 
 
 @dataclass
@@ -22,6 +27,7 @@ class ContratoACSL:
     clausulas: List[ClausulaContrato] = field(default_factory=list)
     verificado_wp: bool = False
     mensaje_prover: str = ""
+    contraejemplo: Optional["Contraejemplo"] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -32,6 +38,7 @@ class ContratoACSL:
             "clausulas": [{"tipo": c.tipo, "exp": c.expresion, "linea": c.linea} for c in self.clausulas],
             "verificado_wp": self.verificado_wp,
             "mensaje_prover": self.mensaje_prover,
+            "contraejemplo": self.contraejemplo.to_dict() if self.contraejemplo else None,
         }
 
 
@@ -40,9 +47,13 @@ class ReporteVerificacion:
     archivo: Path
     contratos: List[ContratoACSL] = field(default_factory=list)
     frama_c_disponible: bool = False
+    errores_acsl: List["ErrorAnotacion"] = field(default_factory=list)
+    metas: List["MetaNoDemostrada"] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
+        if self.errores_acsl:
+            return False
         # Sin contratos no hay nada que verificar: con o sin Frama-C.
         if not self.contratos:
             return True
@@ -70,4 +81,7 @@ class ReporteVerificacion:
             "frama_c_disponible": self.frama_c_disponible,
             "ok": self.ok,
             "contratos": [c.to_dict() for c in self.contratos],
+            "errores_acsl": [e.to_dict() for e in self.errores_acsl],
+            "metas_no_demostradas": [{"meta": m.meta, "estado": m.estado, "explicacion": m.explicacion}
+                                     for m in self.metas],
         }

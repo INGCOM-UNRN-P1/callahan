@@ -37,6 +37,17 @@ class CallahanPlugin:
                 })
                 continue
             total_contratos += len(rep.contratos)
+            if rep.errores_acsl:
+                # Contratos mal escritos: una observación por error, no una por función sin probar.
+                for err in rep.errores_acsl:
+                    observaciones.append({
+                        "codigo": "FORMAL_ACSL_INVALID" if err.tipo == "acsl" else "FORMAL_C_INVALID",
+                        "severidad": "ERROR",
+                        "archivo": str(a),
+                        "linea": err.linea or 0,
+                        "mensaje": err.explicacion,
+                    })
+                continue
             for c in rep.contratos:
                 if not c.verificado_wp:
                     codigo = "FORMAL_WP_UNVERIFIED" if not rep.frama_c_disponible else "FORMAL_WP_FAILED"
