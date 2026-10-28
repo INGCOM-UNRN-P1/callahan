@@ -16,7 +16,7 @@ versiones según [SemVer](https://semver.org/lang/es/).
 
 ### Corregido
 
-- **verify**: una meta en estado `Failure` (falla del prover) se contaba como demostrada.
+- **verify**: una meta en estado `Failure` (falla del prover) no se reconocía: el contrato salía «no probado» sin explicación, como si el problema fuera suyo.
 - **verify**: la caché de WP (`.frama-c/`) ya no se crea en la carpeta del alumno.
 
 ## [0.2.0] - 2026-09-28
