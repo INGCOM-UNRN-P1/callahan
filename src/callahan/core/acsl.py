@@ -215,8 +215,11 @@ def verificar_formal_frama_c(
 
             for c in contratos:
                 propias = [m for m in metas if f"_{c.funcion}_" in f"_{m.meta}_"]
-                c.verificado_wp = exito_wp and not propias
-                c.mensaje_prover = "\n".join(m.explicacion for m in propias) or res.stdout[:200]
+                # Con el resumen de WP cada contrato se juzga por sus metas: una función con todas
+                # sus metas demostradas no queda «no probada» porque falle otra del mismo archivo.
+                wp_completo = res.returncode == 0 and m_goals is not None
+                c.verificado_wp = not propias if wp_completo else (exito_wp and not propias)
+                c.mensaje_prover = "\n".join(dict.fromkeys(m.explicacion for m in propias)) or res.stdout[:200]
                 # Una falla del prover no dice nada del contrato: no hay contraejemplo que buscar.
                 if contraejemplos and propias and any(m.estado != "Failure" for m in propias):
                     hallado = buscar_contraejemplo(texto_exp, c.funcion, [m.meta for m in propias],

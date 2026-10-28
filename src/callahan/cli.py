@@ -144,9 +144,10 @@ def verify_cmd(
     for c in reporte.contratos:
         if c.contraejemplo:
             console.print(f"[bold red]✗[/bold red] {c.contraejemplo.mensaje}")
-    for m in reporte.metas:
-        if not any(c.contraejemplo and f"_{c.funcion}_" in f"_{m.meta}_" for c in reporte.contratos):
-            console.print(f"[yellow]•[/yellow] {m.explicacion}")
+    explicaciones = [m.explicacion for m in reporte.metas
+                     if not any(c.contraejemplo and f"_{c.funcion}_" in f"_{m.meta}_" for c in reporte.contratos)]
+    for explicacion in dict.fromkeys(explicaciones):
+        console.print(f"[yellow]•[/yellow] {explicacion}")
     if not reporte.frama_c_disponible:
         console.print("[yellow]Advertencia: Frama-C no está disponible en el entorno; verificación deductiva no realizada.[/yellow]")
     raise typer.Exit(code=reporte.codigo_de_salida)

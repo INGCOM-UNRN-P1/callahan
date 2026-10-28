@@ -87,3 +87,14 @@ def test_sin_rte_un_desborde_pasa_y_con_rte_no(tmp_path):
     assert verificar_formal_frama_c(fuente, rte=False, timeout=3).ok is True
     rep = verificar_formal_frama_c(fuente, timeout=3, contraejemplos=False)
     assert rep.ok is False and any("_rte_signed_overflow" in m.meta for m in rep.metas)
+
+
+@con_wp
+def test_cada_contrato_se_juzga_por_sus_metas(tmp_path):
+    fuente = tmp_path / "dos.c"
+    fuente.write_text("/*@ requires x > -2147483647; assigns \\nothing; ensures \\result >= 0; */\n"
+                      "int absoluto(int x) { return x < 0 ? -x : x; }\n"
+                      "/*@ assigns \\nothing; ensures \\result == 2 * n; */\nint doble(int n) { return n + n; }\n",
+                      encoding="utf-8")
+    absoluto, doble = verificar_formal_frama_c(fuente, timeout=3, contraejemplos=False).contratos
+    assert absoluto.verificado_wp is True and doble.verificado_wp is False
