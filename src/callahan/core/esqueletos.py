@@ -137,7 +137,7 @@ _EXPLICACIONES = [
     ("_ensures", "No se pudo demostrar la poscondición (ensures) de {f}: puede que falte una precondición (requires) que la garantice, o que el código no cumpla lo que promete el contrato."),
     ("_loop_invariant_preserved", "El invariante de un lazo de {f} no se mantiene en cada vuelta: revisá que el cuerpo lo conserve o debilitalo."),
     ("_loop_invariant_established", "El invariante de un lazo de {f} no vale antes de entrar: revisá la inicialización de las variables del lazo."),
-    ("_loop_variant", "No se pudo demostrar que un lazo de {f} termina: agregá un loop variant que decrezca en cada vuelta."),
+    ("_loop_variant", "No se pudo demostrar que un lazo de {f} termina: agregá un `loop variant` que decrezca en cada vuelta."),
     ("_assigns", "{f} modifica memoria que el contrato no declara en assigns."),
     ("_call_", "Una llamada dentro de {f} no cumple la precondición (requires) de la función llamada."),
     ("_rte_mem_access", "Posible acceso inválido a memoria en {f} (puntero nulo o índice fuera de rango): agregá un requires \\valid(...) o verificá el índice."),
