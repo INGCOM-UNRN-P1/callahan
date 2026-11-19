@@ -14,7 +14,7 @@ def test_cli_version():
     assert res.stdout.startswith("callahan ")  # formato común de yutani: «nombre versión»
 
 
-def test_cli_doctor(monkeypatch):
+def test_cli_doctor(monkeypatch, provers_confiables):
     # Sin depender de que la máquina tenga Frama-C: el CI no lo instala (antes el test pasaba solo
     # donde estaba instalado).
     import callahan.cli as cli

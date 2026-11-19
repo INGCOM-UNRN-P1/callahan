@@ -12,6 +12,7 @@ from typing import List, Optional, Set
 from callahan.core.contraejemplos import Correr, buscar_contraejemplo
 from callahan.core.esqueletos import MetaNoDemostrada, explicar_metas, inyectar_acsl_desde_docblocks
 from callahan.core.models import ClausulaContrato, ContratoACSL, ReporteVerificacion
+from callahan.core.provers import separar_provers
 from callahan.core.validacion import ErrorAnotacion, validar_anotaciones
 
 
@@ -135,9 +136,18 @@ def verificar_formal_frama_c(
 
     frama_c = shutil.which("frama-c")
     provers = [p for p in PROVERS_SOPORTADOS if shutil.which(p)]
+    # Un prover que demuestra metas falsas daría por probado cualquier contrato: no se usa.
+    descartados: List[str] = []
+    if frama_c and provers:
+        provers, descartados = separar_provers(frama_c, provers)
 
     if not frama_c or not provers:
-        motivo = "Frama-C no disponible" if not frama_c else f"ningún prover instalado ({'/'.join(PROVERS_SOPORTADOS)})"
+        if not frama_c:
+            motivo = "Frama-C no disponible"
+        elif descartados:
+            motivo = f"ningún prover confiable ({'/'.join(descartados)} demuestra metas falsas)"
+        else:
+            motivo = f"ningún prover instalado ({'/'.join(PROVERS_SOPORTADOS)})"
         for c in contratos:
             c.verificado_wp = False
             c.mensaje_prover = f"UNVERIFIED: {motivo}"
@@ -145,6 +155,7 @@ def verificar_formal_frama_c(
             archivo=archivo,
             contratos=contratos,
             frama_c_disponible=False,
+            provers_descartados=descartados,
         )
 
     texto_orig = archivo.read_text(encoding="utf-8", errors="replace") if archivo.is_file() else ""
@@ -175,7 +186,7 @@ def verificar_formal_frama_c(
                     c.verificado_wp = False
                     c.mensaje_prover = "No se verificó: el archivo tiene errores en los contratos o en el código."
                 return ReporteVerificacion(archivo=archivo, contratos=contratos, frama_c_disponible=True,
-                                           errores_acsl=errores_acsl)
+                                           errores_acsl=errores_acsl, provers_descartados=descartados)
 
             def correr_wp(fuente: Path, *extra: str) -> subprocess.CompletedProcess[str]:
                 cmd = [frama_c, "-wp", "-wp-prover", ",".join(provers), "-wp-timeout", str(timeout)]
@@ -236,4 +247,5 @@ def verificar_formal_frama_c(
         contratos=contratos,
         frama_c_disponible=True,
         metas=metas,
+        provers_descartados=descartados,
     )

@@ -49,6 +49,8 @@ class ReporteVerificacion:
     frama_c_disponible: bool = False
     errores_acsl: List["ErrorAnotacion"] = field(default_factory=list)
     metas: List["MetaNoDemostrada"] = field(default_factory=list)
+    # Provers instalados que no se usaron porque demuestran metas falsas (core/provers.py).
+    provers_descartados: List[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -84,4 +86,5 @@ class ReporteVerificacion:
             "errores_acsl": [e.to_dict() for e in self.errores_acsl],
             "metas_no_demostradas": [{"meta": m.meta, "estado": m.estado, "explicacion": m.explicacion}
                                      for m in self.metas],
+            "provers_descartados": list(self.provers_descartados),
         }

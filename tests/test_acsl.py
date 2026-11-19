@@ -44,7 +44,7 @@ def test_verificar_formal_fallback(tmp_path, sin_frama_c):
     assert "UNVERIFIED" in rep.contratos[0].mensaje_prover
 
 
-def test_verificar_formal_frama_c_mock(monkeypatch, tmp_path):
+def test_verificar_formal_frama_c_mock(monkeypatch, tmp_path, provers_confiables):
     monkeypatch.setattr("shutil.which", lambda t, *a, **k: "/usr/bin/" + t if t in ("frama-c", "alt-ergo") else None)
     class MockRes:
         stdout = "Proved goals: 100%"
@@ -76,7 +76,7 @@ def test_sin_ningun_prover_instalado_es_no_verificable(monkeypatch, tmp_path):
     assert "ningún prover" in rep.contratos[0].mensaje_prover
 
 
-def test_solo_se_le_pasan_a_frama_c_los_provers_instalados(monkeypatch, tmp_path):
+def test_solo_se_le_pasan_a_frama_c_los_provers_instalados(monkeypatch, tmp_path, provers_confiables):
     real = __import__("shutil").which
     monkeypatch.setattr("shutil.which", lambda t, *a, **k: "/usr/bin/" + t if t in ("frama-c", "alt-ergo") else (None if t == "z3" else real(t, *a, **k)))
     comandos = []

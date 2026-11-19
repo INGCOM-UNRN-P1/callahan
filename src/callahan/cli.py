@@ -15,6 +15,7 @@ from rich.table import Table
 
 from callahan import __version__
 from callahan.core.acsl import TIMEOUT_POR_META, ErrorLectura, extraer_contratos_acsl, verificar_formal_frama_c
+from callahan.core.provers import aviso_descartado, prover_confiable
 
 console = Console()
 err_console = Console(stderr=True)
@@ -45,6 +46,8 @@ def generar_seccion_markdown(reporte) -> str:
             lines.append(f"- {lugar}: {e.explicacion}")
         lines.append("")
         return "\n".join(lines)
+    for p in getattr(reporte, "provers_descartados", []):
+        lines.append(f"> [!WARNING]\n> {aviso_descartado(p)}\n")
     if not reporte.contratos:
         lines.append("> [!NOTE]\n> No se encontraron especificaciones formales ACSL (`/*@ ... */`) en el código.\n")
     elif not reporte.frama_c_disponible:
@@ -119,6 +122,9 @@ def verify_cmd(
         print(json.dumps(reporte.to_dict(), indent=2, ensure_ascii=False))
         raise typer.Exit(code=reporte.codigo_de_salida)
 
+    for p in reporte.provers_descartados:
+        err_console.print(f"[yellow]Advertencia:[/yellow] {aviso_descartado(p)}")
+
     if reporte.errores_acsl:
         _mostrar_errores_acsl(reporte.errores_acsl)
         raise typer.Exit(code=reporte.codigo_de_salida)
@@ -149,7 +155,9 @@ def verify_cmd(
     for explicacion in dict.fromkeys(explicaciones):
         console.print(f"[yellow]•[/yellow] {explicacion}")
     if not reporte.frama_c_disponible:
-        console.print("[yellow]Advertencia: Frama-C no está disponible en el entorno; verificación deductiva no realizada.[/yellow]")
+        motivo = ("ningún prover confiable" if reporte.provers_descartados
+                  else "Frama-C no está disponible en el entorno")
+        console.print(f"[yellow]Advertencia: {motivo}; verificación deductiva no realizada.[/yellow]")
     raise typer.Exit(code=reporte.codigo_de_salida)
 
 
@@ -279,7 +287,18 @@ def doctor_cmd(
         chequeos.append({"nombre": tool, "requerido": tool == "frama-c", "ok": bool(ruta),
                          "detalle": ruta or "No instalado"})
     ok = all(c["ok"] for c in chequeos if c["requerido"])
-    aviso = _aviso_alt_ergo()
+    frama_c = shutil.which("frama-c")
+    z3_confiable = False
+    if frama_c:
+        # Un prover que demuestra metas falsas está instalado pero no sirve (core/provers.py).
+        for prover in ("alt-ergo", "z3"):
+            if shutil.which(prover):
+                confiable = prover_confiable(frama_c, prover)
+                z3_confiable = z3_confiable or (prover == "z3" and confiable)
+                if not confiable:
+                    chequeos.append({"nombre": f"{prover} (demuestra metas falsas)", "requerido": False,
+                                     "ok": False, "detalle": aviso_descartado(prover)})
+    aviso = _aviso_alt_ergo(z3_confiable if frama_c else bool(shutil.which("z3")))
     if aviso:
         chequeos.append({"nombre": "alt-ergo (versión)", "requerido": False, "ok": False, "detalle": aviso})
 
@@ -304,13 +323,13 @@ def doctor_cmd(
         raise typer.Exit(code=1)
 
 
-def _aviso_alt_ergo() -> Optional[str]:
-    """Alt-Ergo < 2.5 sin z3: el Why3 de Frama-C le manda SMT2 polimórfico que no sabe leer."""
+def _aviso_alt_ergo(hay_z3: bool) -> Optional[str]:
+    """Alt-Ergo < 2.5 sin un z3 usable: el Why3 de Frama-C le manda SMT2 polimórfico que no sabe leer."""
     import re
     import subprocess
 
     ruta = shutil.which("alt-ergo")
-    if not ruta or shutil.which("z3"):
+    if not ruta or hay_z3:
         return None
     try:
         salida = subprocess.run([ruta, "--version"], capture_output=True, text=True, timeout=10).stdout
@@ -319,7 +338,7 @@ def _aviso_alt_ergo() -> Optional[str]:
     m = re.match(r"\s*(\d+)\.(\d+)", salida)
     if m and (int(m.group(1)), int(m.group(2))) < (2, 5):
         return (f"Alt-Ergo {salida.strip()} falla (Failure) en las metas sobre memoria modificada, como un "
-                "ordenamiento: instalá z3 o Alt-Ergo ≥ 2.5")
+                "ordenamiento: instalá un z3 confiable o Alt-Ergo ≥ 2.5")
     return None
 
 

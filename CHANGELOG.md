@@ -16,6 +16,7 @@ versiones según [SemVer](https://semver.org/lang/es/).
 
 ### Corregido
 
+- **verify**: no usar un prover que demuestra metas falsas (Z3 4.16 con Frama-C 33 daba por probado cualquier contrato, incluso uno que no se cumple). Se detecta con una meta canario, se avisa en `verify` y en `doctor`, y el JSON lo informa en `provers_descartados`; sin ningún prover confiable, `verify` sale con 2 (no se pudo verificar).
 - **verify**: una meta en estado `Failure` (falla del prover) no se reconocía: el contrato salía «no probado» sin explicación, como si el problema fuera suyo.
 - **verify**: la caché de WP (`.frama-c/`) ya no se crea en la carpeta del alumno.
 

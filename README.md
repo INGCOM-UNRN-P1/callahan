@@ -29,6 +29,7 @@ CALLAHAN realiza análisis y verificación deductiva de contratos formales de so
 
 ### Dependencias Externas y Binarios
 - `frama-c` con plugin `wp` y al menos un SMT prover (`alt-ergo` o `z3`; `verify` invoca `-wp-prover alt-ergo,z3`).
+  Antes de usar un prover, callahan le pide demostrar una meta falsa; si la demuestra (Z3 4.16 con Frama-C 33 lo hace), no lo usa y `verify` y `doctor` lo avisan. El resultado queda en `~/.cache/callahan/provers.json` hasta que se actualiza el prover o Frama-C.
 
 ### Integración en el Ecosistema
 - CLI `callahan`. Plugin registrado en `ripley.plugins` (`formal_contracts`). Subcomando `callahan doctor`.

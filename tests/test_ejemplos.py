@@ -17,8 +17,14 @@ EJEMPLOS = Path(__file__).resolve().parent.parent / "ejemplos"
 
 
 def _alt_ergo_lee_memoria() -> bool:
-    """Alt-Ergo < 2.5 falla con las metas sobre memoria modificada que genera el Why3 de Frama-C."""
-    if shutil.which("z3"):
+    """Alt-Ergo < 2.5 falla con las metas sobre memoria modificada que genera el Why3 de Frama-C.
+
+    Un z3 que demuestra metas falsas (Z3 4.16) no cuenta: callahan lo descarta.
+    """
+    from callahan.core.provers import prover_confiable
+
+    frama_c = shutil.which("frama-c")
+    if frama_c and shutil.which("z3") and prover_confiable(frama_c, "z3"):
         return True
     if not shutil.which("alt-ergo"):
         return False
@@ -38,8 +44,10 @@ def test_se_demuestra_completo(nombre):
 
 
 @con_wp
-@pytest.mark.skipif(not _alt_ergo_lee_memoria(), reason="requiere z3 o Alt-Ergo >= 2.5")
 def test_el_ordenamiento_por_insercion_deja_el_arreglo_ordenado():
+    # Dentro del test y no en skipif: así el canario usa la caché aislada de conftest.
+    if not _alt_ergo_lee_memoria():
+        pytest.skip("requiere un z3 confiable o Alt-Ergo >= 2.5")
     rep = verificar_formal_frama_c(EJEMPLOS / "insercion.c", contraejemplos=False)
     assert rep.ok, [m.explicacion for m in rep.metas]
 
